@@ -33,6 +33,8 @@ Checks SQL Database Size, Space Available and used Space for every database!
 
 4. Set the "$IgnorePattern" or "$IgnoreScript" parameter to exclude databases
 
+5. Set "$Size", "$UsedSpace" or "$FreeSpace" to false and use multiple sensors in big environments.
+
 
 
 ## Examples

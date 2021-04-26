@@ -7,7 +7,7 @@ Jannos-443
 
 ## Project Details
 
-Checks SQL Database Size, Space Available and used Space for every database!
+Checks SQL database size, space available and used space for every database!
 
 | Parameter | Default Value |
 | --- | --- |

@@ -110,7 +110,11 @@ Try{
     #SQL Auth
     if(($username -ne "") -and ($password -ne ""))
         {
-        $SrvConn = new-object Microsoft.SqlServer.Management.Common.ServerConnection        $SrvConn.ServerInstance = $sqlInstanz        $SrvConn.LoginSecure = $false        $SrvConn.Login = $username        $SrvConn.Password = $password
+        $SrvConn = new-object Microsoft.SqlServer.Management.Common.ServerConnection
+        $SrvConn.ServerInstance = $sqlInstanz
+        $SrvConn.LoginSecure = $false
+        $SrvConn.Login = $username
+        $SrvConn.Password = $password
         $server = new-object Microsoft.SqlServer.Management.SMO.Server($SrvConn)
         }
     #Windows Auth (running User)  
@@ -139,11 +143,11 @@ $IgnoreScript = '^(Test-SQL-123|Test-SQL-12345)$'
 
 #Remove Ignored
 if ($IgnorePattern -ne "") {
-    $databases = $databases | where {$_.Name -notmatch $IgnorePattern}  
+    $databases = $databases | Where-Object {$_.Name -notmatch $IgnorePattern}  
 }
 
 if ($IgnoreScript -ne "") {
-    $databases = $databases | where {$_.Name -notmatch $IgnoreScript}  
+    $databases = $databases | Where-Object {$_.Name -notmatch $IgnoreScript}  
 }
 
 #Region: disconnect SQL Server
@@ -151,7 +155,7 @@ $server.ConnectionContext.Disconnect()
 #End Region
 
 #Database(s) found?
-if(($databases -eq 0) -or ($databases -eq $null))
+if(($databases -eq 0) -or ($null -eq $databases))
     {
     Write-Output "<prtg>"
     Write-Output " <error>1</error>"
@@ -163,45 +167,59 @@ if(($databases -eq 0) -or ($databases -eq $null))
 
 #Region: Output Text
 $xmlOutput = '<prtg>'
-
+$NoSizeTXT = "please check permission, could not get size from: "
+$NoSizeCount = 0
 foreach($database in $databases)
     {
-    $SizeByte = [math]::Round($database.size*1048576)
-    $SpaceAvailableMB = [math]::Round(($database.SpaceAvailable)/1024)
-    
-    #Database Size
-    if($Size)
+    if($null -eq $database.size)
         {
-        $xmlOutput = $xmlOutput + "<result>
-        <channel>$($database.name) size</channel>
-        <value>$SizeByte</value>
-        <unit>BytesDisk</unit>
-        </result>"
+        $NoSizeTXT += "$($database.Name); "
+        $NoSizeCount += 1
         }
-    #Database Used Space
-    if($UsedSpace)
+    else 
         {
-        $Used = (($database.Size - $SpaceAvailableMB)/$database.Size)*100
-        $Used = [math]::Round($Used,0)
-        $xmlOutput = $xmlOutput + "<result>
-        <channel>$($database.name) used</channel>
-        <value>$Used</value>
-        <unit>Percent</unit>
-        </result>"
-        }
-
-    #Database Free MB
-    if($FreeSpace)
-        {
-        $xmlOutput = $xmlOutput + "<result>
-        <channel>$($database.name) free space</channel>
-        <value>$($SpaceAvailableMB *1048576)</value>
-        <unit>BytesDisk</unit>
-        </result>"
+            $SizeByte = [math]::Round($database.size*1048576)
+            $SpaceAvailableMB = [math]::Round(($database.SpaceAvailable)/1024)
+            
+            #Database Size
+            if($Size)
+                {
+                $xmlOutput = $xmlOutput + "<result>
+                <channel>$($database.name) size</channel>
+                <value>$SizeByte</value>
+                <unit>BytesDisk</unit>
+                </result>"
+                }
+            #Database Used Space
+            if($UsedSpace)
+                {
+                $Used = (($database.Size - $SpaceAvailableMB)/$database.Size)*100
+                $Used = [math]::Round($Used,0)
+                $xmlOutput = $xmlOutput + "<result>
+                <channel>$($database.name) used</channel>
+                <value>$Used</value>
+                <unit>Percent</unit>
+                </result>"
+                }
+        
+            #Database Free MB
+            if($FreeSpace)
+                {
+                $xmlOutput = $xmlOutput + "<result>
+                <channel>$($database.name) free space</channel>
+                <value>$($SpaceAvailableMB *1048576)</value>
+                <unit>BytesDisk</unit>
+                </result>"
+                }
         }
     }
 
-$xmlOutput = $xmlOutput + "</prtg>"
+if($NoSizeCount -ne 0)
+    {
+    $xmlOutput += "<text>$($NoSizeTXT)</text>"
+    }
+
+$xmlOutput += "</prtg>"
 
 $xmlOutput
 #End Region

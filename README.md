@@ -9,11 +9,8 @@ Jannos-443
 
 Checks SQL database size, space available and used space for every database!
 
-| Parameter | Default Value |
-| --- | --- |
-| Size | $true |
-| UsedSpace | $true |
-| FreeSpace | $true |
+space available and used space (percent) is only shown if an maxlimit is set.
+![PRTG-SQL-DatabaseSize](media/limit.png)
 
 ## HOW TO
 
@@ -33,12 +30,23 @@ Checks SQL database size, space available and used space for every database!
 
 4. Set the "$IgnorePattern" or "$IgnoreScript" parameter to exclude databases
 
-5. Set "$Size", "$UsedSpace" or "$FreeSpace" to false and use multiple sensors in big environments.
+5. Use "-HideSize", "-HideUsedSpace" or "-HideFreeSpace" if you want to hide something.
 
 
 
 ## Examples
-![PRTG-SQL-DatabaseSize](media/ok.png)
+Size for each mdf & ndf:`-sqlInstanz "SQL-Test" -ShowFile`
+
+![PRTG-SQL-DatabaseSize](media/file.png)
+
+Size for each Logfile: `-sqlInstanz "SQL-Test" -ShowLog`
+
+![PRTG-SQL-DatabaseSize](media/log.png)
+
+Full Database Size: `-sqlInstanz "SQL-Test" -ShowDatabase`
+
+![PRTG-SQL-DatabaseSize](media/db.png)
+
 
 exceptions
 ------------------

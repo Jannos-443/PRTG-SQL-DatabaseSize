@@ -19,14 +19,23 @@
     .PARAMETER password
     SQL Auth Password (if not specified Windows Auth is used)
 
-    .PARAMETER Size
-    disables or enables Database Size Output (default = enabled)
+    .PARAMETER ShowFile
+    Show Channel for each Database File
 
-    .PARAMETER UsedSpace
-    disables or enables Database Used Space (percent) (default = enabled)
+    .PARAMETER ShowLog
+    Show Channel for each Database Log
 
-    .PARAMETER FreeSpace
-    disables or enables FreeSpace Output (default = enabled)
+    .PARAMETER ShowDatabase
+    Show Channel for each Database (Database File + Log + ...)
+
+    .PARAMETER HideSize
+    hide Size output
+
+    .PARAMETER HideUsedSpace
+    hide Used Space (percent) output <- only shown if a maxlimit is set
+
+    .PARAMETER HideFreeSpace
+    hide FreeSpace output <- only shown if a maxlimit is set
     
     .PARAMETER IgnorePattern
     Regular expression to describe the Database Name for Example "Test-SQL" to exclude this Database.
@@ -36,7 +45,7 @@
     
     .EXAMPLE
     Sample call from PRTG EXE/Script Advanced
-    PRTG-SQL-DatabaseSize.ps1 -sqlInstanz "SQL-Test" -IgnorePattern '(Test123SQL|SQL-ABC)'
+    PRTG-SQL-DatabaseSize.ps1 -sqlInstanz "SQL-Test" -IgnorePattern '(Test123SQL|SQL-ABC)' -ShowDatabase
 
     Author:  Jannos-443
     https://github.com/Jannos-443/PRTG-SQL-DatabaseSize
@@ -48,10 +57,14 @@ param(
     [string]$sqlInstanz = '',
     [string]$username = '',
     [string]$password = '',
-    [string]$IgnorePattern = '',    
-    [Boolean]$Size = $true,
-    [Boolean]$UsedSpace = $true,
-    [Boolean]$FreeSpace = $true
+    [string]$IgnorePattern = '',
+    [Switch]$ShowFile,
+    [Switch]$ShowDatabase,
+    [Switch]$ShowLog,
+    [Switch]$HideSize,
+    [Switch]$HideUsedSpace,
+    [Switch]$HideFreeSpace
+
 )
 
 #catch all unhadled errors
@@ -138,6 +151,18 @@ catch{
     }
 
 
+#Channels?
+if(($ShowFile) -or ($ShowDatabase) -or ($ShowLog))
+    {
+
+    }
+
+else
+    {
+    $ShowFile = $true
+    }
+
+
 #hardcoded list that applies to all hosts
 $IgnoreScript = '^(Test-SQL-123|Test-SQL-12345)$' 
 
@@ -168,7 +193,7 @@ if(($databases -eq 0) -or ($null -eq $databases))
 
 #Region: Output Text
 $xmlOutput = '<prtg>'
-$NoSizeTXT = "please check permission, could not get size from: "
+$NoSizeTXT = "please check permission, could not get data from: "
 $NoSizeCount = 0
 foreach($database in $databases)
     {
@@ -177,41 +202,153 @@ foreach($database in $databases)
         $NoSizeTXT += "$($database.Name); "
         $NoSizeCount += 1
         }
-    else 
+    else
         {
+        if($ShowFile)
+            {
+            $filegroups = $null
+            $filegroups = $database.FileGroups
+            foreach($filegroup in $filegroups)
+                {
+                $files = $filegroup.Files
+                foreach($file in $files)
+                    {
+                                #Log Size
+                    if(-not $HideSize)
+                        {
+                        $SizeMB = $null
+                        $SizeMB = [math]::Round($file.Size/1024)
+                        $xmlOutput = $xmlOutput + "<result>
+                        <channel>DB: $($database.name) File: $($file.name) size</channel>
+                        <value>$([decimal]$SizeMB)</value>
+                        <unit>Custom</unit>
+                        <CustomUnit>MB</CustomUnit>
+                        </result>"
+                        }
+
+                    #Check if SizeLimit is set
+                    if(($file.MaxSize -ne -1) -and ($file.MaxSize -ne 2147483648))
+                        {
+                        #Log Used Space
+                        if(-not $HideUsedSpace)
+                            {
+                            $Used = (($file.UsedSpace)/$file.MaxSize)*100
+                            $Used = [math]::Round($Used,0)
+                            $xmlOutput = $xmlOutput + "<result>
+                            <channel>DB: $($database.name) File: $($file.name) used</channel>
+                            <value>$Used</value>
+                            <unit>Percent</unit>
+                            </result>"
+                            }
+        
+                        #Log Free MB
+                        $SpaceAvailableMB = $null
+                        $SpaceAvailableMB = [math]::Round(($file.Maxsize - $file.UsedSpace)/1024)
+                        if(-not $HideFreeSpace)
+                            {
+                            $xmlOutput = $xmlOutput + "<result>
+                            <channel>DB: $($database.name) File: $($file.name) free space</channel>
+                            <value>$([decimal]($SpaceAvailableMB))</value>
+                            <unit>Custom</unit>
+                            <CustomUnit>MB</CustomUnit>
+                            </result>"
+                            }
+                        }
+                    }
+                }
+            }
+
+        if($ShowDatabase)
+            {
             $SizeByte = [math]::Round($database.size*1048576)
             $SpaceAvailableMB = [math]::Round(($database.SpaceAvailable)/1024)
             
             #Database Size
-            if($Size)
+            if(-not $HideSize)
                 {
                 $xmlOutput = $xmlOutput + "<result>
                 <channel>$($database.name) size</channel>
-                <value>$SizeByte</value>
+                <value>$([decimal]$SizeByte)</value>
                 <unit>BytesDisk</unit>
                 </result>"
                 }
-            #Database Used Space
-            if($UsedSpace)
+
+            #Check if SizeLimit is set
+            if($database.MaxSizeInBytes -ne $null)
                 {
-                $Used = (($database.Size - $SpaceAvailableMB)/$database.Size)*100
-                $Used = [math]::Round($Used,0)
-                $xmlOutput = $xmlOutput + "<result>
-                <channel>$($database.name) used</channel>
-                <value>$Used</value>
-                <unit>Percent</unit>
-                </result>"
-                }
+                #Database Used Space
+                if(-not $HideUsedSpace)
+                    {
+                    $Used = ($SizeByte/$database.MaxSizeInBytes)*100
+                    $Used = [math]::Round($Used,0)
+                    $xmlOutput = $xmlOutput + "<result>
+                    <channel>$($database.name) used</channel>
+                    <value>$Used</value>
+                    <unit>Percent</unit>
+                    </result>"
+                    }
         
-            #Database Free MB
-            if($FreeSpace)
-                {
-                $xmlOutput = $xmlOutput + "<result>
-                <channel>$($database.name) free space</channel>
-                <value>$($SpaceAvailableMB *1048576)</value>
-                <unit>BytesDisk</unit>
-                </result>"
+                #Database Free MB
+                if(-not $HideFreeSpace)
+                    {
+                    $xmlOutput = $xmlOutput + "<result>
+                    <channel>$($database.name) free space</channel>
+                    <value>$([decimal]($SpaceAvailableMB *1048576))</value>
+                    <unit>BytesDisk</unit>
+                    </result>"
+                    }
                 }
+            }
+
+        if($ShowLog)
+            {
+            $LogFiles = $null
+            $LogFiles = $database.LogFiles
+            foreach($LogFile in $LogFiles)
+                {                       
+                #Log Size
+                if(-not $HideSize)
+                    {
+                    $SizeMB = $null
+                    $SizeMB = [math]::Round($LogFile.Size/1024)
+                    $xmlOutput = $xmlOutput + "<result>
+                    <channel>DB: $($database.name) LOG: $($LogFile.name) size</channel>
+                    <value>$([decimal]$SizeMB)</value>
+                    <unit>Custom</unit>
+                    <CustomUnit>MB</CustomUnit>
+                    </result>"
+                    }
+
+                #Check if SizeLimit is set
+                if(($LogFile.MaxSize -ne -1) -and ($LogFile.MaxSize -ne 2147483648))
+                    {
+                    #Log Used Space
+                    if(-not $HideUsedSpace)
+                        {
+                        $Used = (($LogFile.UsedSpace)/$LogFile.MaxSize)*100
+                        $Used = [math]::Round($Used,0)
+                        $xmlOutput = $xmlOutput + "<result>
+                        <channel>DB: $($database.name) LOG: $($LogFile.name) used</channel>
+                        <value>$Used</value>
+                        <unit>Percent</unit>
+                        </result>"
+                        }
+        
+                    #Log Free MB
+                    $SpaceAvailableMB = $null
+                    $SpaceAvailableMB = [math]::Round(($LogFile.Maxsize - $LogFile.UsedSpace)/1024)
+                    if(-not $HideFreeSpace)
+                        {
+                        $xmlOutput = $xmlOutput + "<result>
+                        <channel>DB: $($database.name) LOG: $($LogFile.name) free space</channel>
+                        <value>$([decimal]($SpaceAvailableMB))</value>
+                        <unit>Custom</unit>
+                        <CustomUnit>MB</CustomUnit>
+                        </result>"
+                        }
+                    }
+                } 
+            }
         }
     }
 

@@ -359,5 +359,14 @@ if($NoSizeCount -ne 0)
 
 $xmlOutput += "</prtg>"
 
-$xmlOutput
-#End Region
+try
+    {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::WriteLine($xmlOutput)
+    #https://kb.paessler.com/en/topic/64817-how-can-i-show-special-characters-with-exe-script-sensors
+    }
+
+catch
+    {
+    $xmlOutput
+    }

@@ -12,6 +12,12 @@ Checks SQL database size, space available and used space for every database!
 space available and used space (percent) is only shown if an maxlimit is set.
 ![PRTG-SQL-DatabaseSize](media/limit.png)
 
+required Custom SQL Server Role permission:
+   | SERVER	CONNECT SQL |
+   | SERVER	VIEW SERVER STATE |
+   | SERVER	CONNECT ANY DATABASE |
+
+
 ## HOW TO
 
 1. Make sure the SQLServer Module exists on the Probe

@@ -119,6 +119,17 @@ if(($Size -eq $false) -and ($UsedSpace -eq $false) -and ($FreeSpace -eq $false))
     Exit
     }
 
+#Channels?
+if(($ShowFile) -or ($ShowDatabase) -or ($ShowLog))
+    {
+
+    }
+
+else
+    {
+    $ShowFile = $true
+    }
+
 #Connect SQL and Get Databases
 Try{
     #SQL Auth
@@ -148,18 +159,6 @@ catch{
     Write-Output " <text>SQL Instanz $($sqlInstanz) not found or access denied</text>"
     Write-Output "</prtg>"
     Exit
-    }
-
-
-#Channels?
-if(($ShowFile) -or ($ShowDatabase) -or ($ShowLog))
-    {
-
-    }
-
-else
-    {
-    $ShowFile = $true
     }
 
 

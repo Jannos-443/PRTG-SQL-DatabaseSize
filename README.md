@@ -16,9 +16,12 @@ space available and used space (percent) is only shown if an maxlimit is set.
 ## HOW TO
 1. Make sure your SQL User/Windows User has the required SQL Server permission
    required Custom SQL Server Role permission:
-   | SERVER	CONNECT SQL |
-   | SERVER	VIEW SERVER STATE |
-   | SERVER	CONNECT ANY DATABASE |
+   
+   - SERVER	CONNECT SQL
+   
+   - SERVER	VIEW SERVER STATE
+   
+   - SERVER	CONNECT ANY DATABASE
 
 2. Make sure the SQLServer Module exists on the Probe
    - `https://docs.microsoft.com/en-us/sql/powershell/download-sql-server-ps-module?view=sql-server-ver15`

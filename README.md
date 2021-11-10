@@ -32,7 +32,7 @@ space available and used space (percent) is only shown if an maxlimit is set.
 
    | Settings | Value |
    | --- | --- |
-   | EXE/Script | PRTG-SQL-DatabaseSize.ps1 |
+   | EXE/Script Advanced | PRTG-SQL-DatabaseSize.ps1 |
    | Parameters | `-sqlInstanz "SQL-Test" -IgnorePattern '(SQL-ABC)'` |
    | Scanning Interval | 10 minutes |
 

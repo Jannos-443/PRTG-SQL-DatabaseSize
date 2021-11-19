@@ -56,9 +56,8 @@ Full Database Size: `-sqlInstanz "SQL-Test" -ShowDatabase`
 
 ![PRTG-SQL-DatabaseSize](media/db.png)
 
-
 Summed up DB Files for each: `-sqlInstanz "SQL-Test" -ShowFile -IncludeSum`
-
+![PRTG-SQL-DatabaseSize](media/sum.png)
 
 Summed Up DB File Sum for the DB "Test123": `-sqlInstanz "SQL-Test" -ShowFile -IncludeSum -IncludePattern '^(Test123)$'`
 

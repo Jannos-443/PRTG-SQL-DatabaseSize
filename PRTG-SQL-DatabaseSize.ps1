@@ -28,21 +28,29 @@
     .PARAMETER ShowDatabase
     Show Channel for each Database (Database File + Log + ...)
 
-    .PARAMETER HideSize
-    hide Size output
+    .PARAMETER IncludeSum
+    Includes SUM Channel from all Log and/or DB Files (One Value with the Size from all Log/DB files from each DB)
 
-    .PARAMETER HideUsedSpace
-    hide Used Space (percent) output <- only shown if a maxlimit is set
+    .PARAMETER IncludeSize
+    Includes SIZE Channel from all Log and/or DB Files (One Value for each Log/DB File)
 
-    .PARAMETER HideFreeSpace
-    hide FreeSpace output <- only shown if a maxlimit is set
+    .PARAMETER IncludeUsedSpace
+    Includes Used Space (percent) Channel <- only shown if a maxlimit is set
+
+    .PARAMETER IncludeFreeSpace
+    Includes FreeSpace Channel <- only shown if a maxlimit is set
     
     .PARAMETER IgnorePattern
     Regular expression to describe the Database Name for Example "Test-SQL" to exclude this Database.
-    Example: ^(Test123)$ excludes Test123
+    Example: -IgnorePattern '^(Test123)$' excludes Test123
     Example2: ^(Test123.*|TestTest123)$ excludes TestTest123, Test123, Test123456 and more.
-    #https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_regular_expressions?view=powershell-7.1
     
+    .PARAMETER IncludePattern
+    Regular expression to describe the Database Name for Example "Test-SQL" to include this Database.
+    Example: -IncludePattern '^(Test123)$' only include the DB Test123
+    Example: -IncludePattern '^(Test.*)$' only include DBs that beginn with Test
+    https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_regular_expressions?view=powershell-7.1
+
     .EXAMPLE
     Sample call from PRTG EXE/Script Advanced
     PRTG-SQL-DatabaseSize.ps1 -sqlInstanz "SQL-Test" -IgnorePattern '(Test123SQL|SQL-ABC)' -ShowDatabase
@@ -58,13 +66,14 @@ param(
     [string]$username = '',
     [string]$password = '',
     [string]$IgnorePattern = '',
+    [string]$IncludePattern = '',
     [Switch]$ShowFile,
     [Switch]$ShowDatabase,
     [Switch]$ShowLog,
-    [Switch]$HideSize,
-    [Switch]$HideUsedSpace,
-    [Switch]$HideFreeSpace
-
+    [Switch]$IncludeSum,
+    [Switch]$IncludeSize,
+    [Switch]$IncludeUsedSpace,
+    [Switch]$IncludeFreeSpace
 )
 
 #catch all unhadled errors
@@ -110,24 +119,15 @@ catch
     Exit
     }
 
-if(($Size -eq $false) -and ($UsedSpace -eq $false) -and ($FreeSpace -eq $false))
-    {
-    Write-Output "<prtg>"
-    Write-Output "<error>1</error>"
-    Write-Output "<text>No Output specified</text>"
-    Write-Output "</prtg>"
-    Exit
-    }
-
-#Channels?
-if(($ShowFile) -or ($ShowDatabase) -or ($ShowLog))
-    {
-
-    }
-
-else
+#Nothing Selected?
+if(-not (($ShowFile) -or ($ShowDatabase) -or ($ShowLog)))
     {
     $ShowFile = $true
+    }
+
+if(-not (($IncludeSum) -or ($IncludeSize) -or ($IncludeUsedSpace) -or ($IncludeFreeSpace)))
+    {
+    $IncludeSize = $true
     }
 
 #Connect SQL and Get Databases
@@ -150,7 +150,6 @@ Try{
 
     #Get Databases
     $databases = $server.Databases
-
     }
 
 catch{
@@ -162,11 +161,12 @@ catch{
     }
 
 
+#Region: Filter
+
 #hardcoded list that applies to all hosts
 $IgnoreScript = '^(Test-SQL-123|Test-SQL-12345)$' 
+$IncludeScript = ''
 
-
-#Remove Ignored
 if ($IgnorePattern -ne "") {
     $databases = $databases | Where-Object {$_.Name -notmatch $IgnorePattern}  
 }
@@ -174,6 +174,17 @@ if ($IgnorePattern -ne "") {
 if ($IgnoreScript -ne "") {
     $databases = $databases | Where-Object {$_.Name -notmatch $IgnoreScript}  
 }
+
+if ($IncludePattern -ne "") {
+    $databases = $databases | Where-Object {$_.Name -match $IncludePattern}
+}
+
+if ($IncludeScript -ne "") {
+    $databases = $databases | Where-Object {$_.Name -match $IncludeScript}
+}
+
+#End Region Filter
+
 
 #Region: disconnect SQL Server
 $server.ConnectionContext.Disconnect()
@@ -196,6 +207,8 @@ $NoSizeTXT = "please check permission, could not get data from: "
 $NoSizeCount = 0
 foreach($database in $databases)
     {
+    $DBFileSum = 0
+    $LogFileSum = 0 
     if($null -eq $database.size)
         {
         $NoSizeTXT += "$($database.Name); "
@@ -203,7 +216,8 @@ foreach($database in $databases)
         }
     else
         {
-        if($ShowFile)
+        #Region: DB File
+        if($ShowFile) # Size for each Database File (mdf, ndf)
             {
             $filegroups = $null
             $filegroups = $database.FileGroups
@@ -212,11 +226,13 @@ foreach($database in $databases)
                 $files = $filegroup.Files
                 foreach($file in $files)
                     {
-                                #Log Size
-                    if(-not $HideSize)
+                    $SizeMB = $null
+                    $SizeMB = [math]::Round($file.Size/1024)
+                    
+                    #Log Size
+                    $DBFileSum += $SizeMB
+                    if($includeSize)
                         {
-                        $SizeMB = $null
-                        $SizeMB = [math]::Round($file.Size/1024)
                         $xmlOutput = $xmlOutput + "<result>
                         <channel>DB: $($database.name) File: $($file.name) size</channel>
                         <value>$([decimal]$SizeMB)</value>
@@ -229,7 +245,7 @@ foreach($database in $databases)
                     if(($file.MaxSize -ne -1) -and ($file.MaxSize -ne 2147483648))
                         {
                         #Log Used Space
-                        if(-not $HideUsedSpace)
+                        if($IncludeUsedSpace)
                             {
                             $Used = (($file.UsedSpace)/$file.MaxSize)*100
                             $Used = [math]::Round($Used,0)
@@ -243,7 +259,7 @@ foreach($database in $databases)
                         #Log Free MB
                         $SpaceAvailableMB = $null
                         $SpaceAvailableMB = [math]::Round(($file.Maxsize - $file.UsedSpace)/1024)
-                        if(-not $HideFreeSpace)
+                        if($IncludeFreeSpace)
                             {
                             $xmlOutput = $xmlOutput + "<result>
                             <channel>DB: $($database.name) File: $($file.name) free space</channel>
@@ -255,15 +271,27 @@ foreach($database in $databases)
                         }
                     }
                 }
+                # Show file sum
+                if($IncludeSum)
+                {
+                $xmlOutput = $xmlOutput + "<result>
+                <channel>DB: $($database.name) file sum</channel>
+                <value>$([decimal]$DBFileSum)</value>
+                <unit>Custom</unit>
+                <CustomUnit>MB</CustomUnit>
+                </result>"
+                }
             }
+        #End Region DB File
 
-        if($ShowDatabase)
+        #Region: Database
+        if($ShowDatabase) # Full Database Size (DB + Log + ...)
             {
             $SizeByte = [math]::Round($database.size*1048576)
             $SpaceAvailableMB = [math]::Round(($database.SpaceAvailable)/1024)
             
             #Database Size
-            if(-not $HideSize)
+            if($includeSize)
                 {
                 $xmlOutput = $xmlOutput + "<result>
                 <channel>$($database.name) size</channel>
@@ -273,10 +301,10 @@ foreach($database in $databases)
                 }
 
             #Check if SizeLimit is set
-            if($database.MaxSizeInBytes -ne $null)
+            if($null -ne $database.MaxSizeInBytes)
                 {
                 #Database Used Space
-                if(-not $HideUsedSpace)
+                if($IncludeUsedSpace)
                     {
                     $Used = ($SizeByte/$database.MaxSizeInBytes)*100
                     $Used = [math]::Round($Used,0)
@@ -288,7 +316,7 @@ foreach($database in $databases)
                     }
         
                 #Database Free MB
-                if(-not $HideFreeSpace)
+                if($IncludeFreeSpace)
                     {
                     $xmlOutput = $xmlOutput + "<result>
                     <channel>$($database.name) free space</channel>
@@ -298,18 +326,22 @@ foreach($database in $databases)
                     }
                 }
             }
+        #End Region Database
 
+        #Region:  Log
         if($ShowLog)
             {
             $LogFiles = $null
             $LogFiles = $database.LogFiles
             foreach($LogFile in $LogFiles)
                 {                       
+                $SizeMB = $null
+                $SizeMB = [math]::Round($LogFile.Size/1024)
+                $LogFileSum += $SizeMB
+
                 #Log Size
-                if(-not $HideSize)
+                if($includeSize)
                     {
-                    $SizeMB = $null
-                    $SizeMB = [math]::Round($LogFile.Size/1024)
                     $xmlOutput = $xmlOutput + "<result>
                     <channel>DB: $($database.name) LOG: $($LogFile.name) size</channel>
                     <value>$([decimal]$SizeMB)</value>
@@ -322,7 +354,7 @@ foreach($database in $databases)
                 if(($LogFile.MaxSize -ne -1) -and ($LogFile.MaxSize -ne 2147483648))
                     {
                     #Log Used Space
-                    if(-not $HideUsedSpace)
+                    if($IncludeUsedSpace)
                         {
                         $Used = (($LogFile.UsedSpace)/$LogFile.MaxSize)*100
                         $Used = [math]::Round($Used,0)
@@ -336,7 +368,7 @@ foreach($database in $databases)
                     #Log Free MB
                     $SpaceAvailableMB = $null
                     $SpaceAvailableMB = [math]::Round(($LogFile.Maxsize - $LogFile.UsedSpace)/1024)
-                    if(-not $HideFreeSpace)
+                    if($IncludeFreeSpace)
                         {
                         $xmlOutput = $xmlOutput + "<result>
                         <channel>DB: $($database.name) LOG: $($LogFile.name) free space</channel>
@@ -347,8 +379,19 @@ foreach($database in $databases)
                         }
                     }
                 } 
+            # Show Log sum
+            if($IncludeSum)
+                {
+                $xmlOutput = $xmlOutput + "<result>
+                <channel>DB: $($database.name) log sum</channel>
+                <value>$([decimal]$LogFileSum)</value>
+                <unit>Custom</unit>
+                <CustomUnit>MB</CustomUnit>
+                </result>"
+                }
             }
-        }
+        #End Region Log
+        }    
     }
 
 if($NoSizeCount -ne 0)

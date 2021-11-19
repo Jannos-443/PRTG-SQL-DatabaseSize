@@ -57,6 +57,11 @@ Full Database Size: `-sqlInstanz "SQL-Test" -ShowDatabase`
 ![PRTG-SQL-DatabaseSize](media/db.png)
 
 
+Summed up DB Files for each: `-sqlInstanz "SQL-Test" -ShowFile -IncludeSum`
+
+
+Summed Up DB File Sum for the DB "Test123": `-sqlInstanz "SQL-Test" -ShowFile -IncludeSum -IncludePattern '^(Test123)$'`
+
 exceptions
 ------------------
 You can either use the **parameter $IgnorePattern** to exclude a database on sensor basis, or set the **variable $IgnoreScript** within the script. Both variables take a regular expression as input to provide maximum flexibility. These regexes are then evaluated againt the **Database Name**
